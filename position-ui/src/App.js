@@ -3,16 +3,19 @@ import axios from "axios";
 import PositionsTable from "./components/PositionsTable";
 import TransactionForm from "./components/TransactionForm";
 
+// Centralized initial transaction state
+const INITIAL_TRANSACTION = {
+  tradeId: "",
+  version: "",
+  securityCode: "",
+  quantity: "",
+  action: "INSERT",
+  buySell: "Buy"
+};
+
 function App() {
   const [positions, setPositions] = useState([]);
-  const [transaction, setTransaction] = useState({
-    tradeId: "",
-    version: "",
-    securityCode: "",
-    quantity: "",
-    action: "INSERT",
-    buySell: "Buy"
-  });
+  const [transaction, setTransaction] = useState(INITIAL_TRANSACTION);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -20,70 +23,58 @@ function App() {
     fetchPositions();
   }, []);
 
-  const validateTransaction = (tx) => {
-  if (!tx.tradeId || tx.tradeId <= 0) return "TradeId must be positive.";
-  if (!tx.version || tx.version < 1) return "Version must be >= 1.";
-  if (!tx.securityCode || tx.securityCode.trim() === "") return "SecurityCode is required.";
-  if (tx.securityCode.length > 10) return "SecurityCode must be <= 10 characters.";
-  if (!tx.quantity || tx.quantity <= 0) return "Quantity must be positive.";
-  return null; // valid
-};
+  // Validation rules (including domain-specific ones)
+  function validateTransaction(tx) {
+    if (!tx.tradeId || tx.tradeId <= 0) return "TradeId must be positive.";
+    if (!tx.version || tx.version < 1) return "Version must be >= 1.";
+    if (!tx.securityCode?.trim()) return "SecurityCode is required.";
+    if (tx.securityCode.length > 10) return "SecurityCode must be <= 10 characters.";
+    if (!tx.quantity || tx.quantity <= 0) return "Quantity must be positive.";
 
-  const fetchPositions = async () => {
+    if (tx.action === "INSERT" && tx.version !== 1) {
+      return "INSERT must always be version 1.";
+    }
+    if (tx.action === "CANCEL" && tx.version <= 1) {
+      return "CANCEL must be the last version (greater than 1).";
+    }
+
+    return null; // valid
+  }
+
+  async function fetchPositions() {
     setLoading(true);
     setError("");
     try {
-      const res = await axios.get("http://localhost:5130/api/transactions/positions");
-      setPositions(res.data);
+      const { data } = await axios.get("http://localhost:5130/api/transactions/positions");
+      setPositions(data);
     } catch (err) {
       setError("Failed to load positions. Please try again later.");
       console.error("Error fetching positions:", err);
     } finally {
       setLoading(false);
     }
-  };
-
-const submitTransaction = async () => {
-  const validationError = validateTransaction(transaction);
-  if (validationError) {
-    setError(`${validationError}`);
-    return; // stop here
-  }
-  // Basic validation
-  if (
-    !transaction.tradeId ||
-    !transaction.version ||
-    !transaction.securityCode.trim() ||
-    !transaction.quantity ||
-    transaction.quantity <= 0
-  ) {
-    setError("Please fill in all required fields with valid values.");
-    return; // Stop here, don't call API
   }
 
-  setLoading(true);
-  setError("");
-  try {
-    const res = await axios.post("http://localhost:5130/api/transactions", transaction);
-    setPositions(res.data);
+  async function submitTransaction() {
+    const validationError = validateTransaction(transaction);
+    if (validationError) {
+      setError(`${validationError}`);
+      return;
+    }
 
-    // Reset form after success
-    setTransaction({
-      tradeId: "",
-      version: "",
-      securityCode: "",
-      quantity: "",
-      action: "INSERT",
-      buySell: "Buy"
-    });
-  } catch (err) {
-    setError("Failed to submit transaction. Please check your input.");
-    console.error("Error submitting transaction:", err);
-  } finally {
-    setLoading(false);
+    setLoading(true);
+    setError("");
+    try {
+      const { data } = await axios.post("http://localhost:5130/api/transactions", transaction);
+      setPositions(data);
+      setTransaction(INITIAL_TRANSACTION); // reset form
+    } catch (err) {
+      setError("Failed to submit transaction. Please check your input.");
+      console.error("Error submitting transaction:", err);
+    } finally {
+      setLoading(false);
+    }
   }
-};
-
 
   return (
     <div style={{ padding: "20px", fontFamily: "Arial" }}>
