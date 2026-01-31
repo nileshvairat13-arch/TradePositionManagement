@@ -30,7 +30,6 @@ Swagger UI is enabled for interactive documentation and testing.
 ---
 
 ## 📂 Project Structure
-```plaintext
 PositionManagementAPI/
 ├── Controllers/
 │   └── TransactionsController.cs
