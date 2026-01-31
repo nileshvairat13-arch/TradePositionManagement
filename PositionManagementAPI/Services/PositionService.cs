@@ -1,4 +1,4 @@
-﻿using PositionManagementAPI.Models;
+using PositionManagementAPI.Models;
 using PositionManagementAPI.Repositories;
 
 namespace PositionManagementAPI.Services
@@ -7,21 +7,27 @@ namespace PositionManagementAPI.Services
     {
         public void ProcessTransaction(Transaction tx)
         {
-            if (tx.Action == "INSERT")
+            InMemoryStore.AllTransactions.Add(tx);
+
+            if (tx.Action == "INSERT" && tx.Version == 1)
             {
-                // Only accept INSERT if version == 1
-                if (tx.Version == 1)
+                InMemoryStore.Trades[tx.TradeId] = tx;
+                ApplyPosition(tx, true);
+
+                // Replay later versions if they already arrived
+                var laterVersions = InMemoryStore.AllTransactions
+                    .Where(t => t.TradeId == tx.TradeId && t.Version > 1)
+                    .OrderBy(t => t.Version);
+
+                foreach (var laterTx in laterVersions)
                 {
-                    InMemoryStore.Trades[tx.TradeId] = tx;
-                    ApplyPosition(tx, true);
+                    ProcessTransaction(laterTx);
                 }
             }
             else if (tx.Action == "UPDATE")
             {
-                if (InMemoryStore.Trades.ContainsKey(tx.TradeId))
+                if (InMemoryStore.Trades.TryGetValue(tx.TradeId, out var oldTx))
                 {
-                    var oldTx = InMemoryStore.Trades[tx.TradeId];
-
                     if (tx.Version > oldTx.Version)
                     {
                         ApplyPosition(oldTx, false);
@@ -29,20 +35,16 @@ namespace PositionManagementAPI.Services
                         ApplyPosition(tx, true);
                     }
                 }
-                else
-                {
-                    // UPDATE arrives before INSERT → ignore until INSERT v1 arrives
-                }
+                // If INSERT hasn’t arrived yet, UPDATE just sits in AllTransactions
             }
             else if (tx.Action == "CANCEL")
             {
-                if (InMemoryStore.Trades.ContainsKey(tx.TradeId))
+                if (InMemoryStore.Trades.TryGetValue(tx.TradeId, out var oldTx))
                 {
-                    var oldTx = InMemoryStore.Trades[tx.TradeId];
-
                     ApplyPosition(oldTx, false);
                     InMemoryStore.Trades.Remove(tx.TradeId);
                 }
+                // If INSERT hasn’t arrived yet, CANCEL just sits in AllTransactions
             }
         }
 
