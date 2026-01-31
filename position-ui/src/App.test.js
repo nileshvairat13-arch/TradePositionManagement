@@ -1,11 +1,16 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import App from './App';
+import axios from 'axios';
 
 // Mock axios so we don’t hit the real backend
 jest.mock('axios', () => ({
   get: jest.fn(() => Promise.resolve({ data: [] })),
   post: jest.fn(() => Promise.resolve({ data: [] }))
 }));
+
+beforeEach(() => {
+  jest.clearAllMocks();
+});
 
 test('renders positions table header', async () => {
   render(<App />);
@@ -22,10 +27,36 @@ test('renders transaction form inputs', () => {
   expect(screen.getByPlaceholderText(/Quantity/i)).toBeInTheDocument();
 });
 
-test('submits transaction when button clicked', () => {
+test('shows validation error when submitting empty form', () => {
   render(<App />);
   const submitButton = screen.getByText(/Submit/i);
   fireEvent.click(submitButton);
-  // Since axios.post is mocked, we just check that the button exists and can be clicked
-  expect(submitButton).toBeInTheDocument();
+
+  expect(screen.getByText(/TradeId must be positive/i)).toBeInTheDocument();
+  expect(axios.post).not.toHaveBeenCalled();
+});
+
+test('calls axios.post when valid transaction is submitted', async () => {
+  render(<App />);
+
+  fireEvent.change(screen.getByPlaceholderText(/TradeId/i), { target: { value: '1' } });
+  fireEvent.change(screen.getByPlaceholderText(/Version/i), { target: { value: '1' } });
+  fireEvent.change(screen.getByPlaceholderText(/SecurityCode/i), { target: { value: 'REL' } });
+  fireEvent.change(screen.getByPlaceholderText(/Quantity/i), { target: { value: '50' } });
+
+  const submitButton = screen.getByText(/Submit/i);
+  fireEvent.click(submitButton);
+
+  expect(axios.post).toHaveBeenCalledTimes(1);
+  expect(axios.post).toHaveBeenCalledWith(
+    "http://localhost:5130/api/transactions",
+    expect.objectContaining({
+      tradeId: 1,
+      version: 1,
+      securityCode: "REL",
+      quantity: 50,
+      action: "INSERT",
+      buySell: "Buy"
+    })
+  );
 });
