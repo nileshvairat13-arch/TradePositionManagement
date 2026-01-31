@@ -1,0 +1,28 @@
+[
+  {
+    "ContainingType": "PositionManagementAPI.Controllers.TransactionsController",
+    "Method": "Post",
+    "RelativePath": "api/Transactions",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "tx",
+        "Type": "PositionManagementAPI.Models.Transaction",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "PositionManagementAPI.Controllers.TransactionsController",
+    "Method": "GetPositions",
+    "RelativePath": "api/Transactions/positions",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  }
+]
